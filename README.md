@@ -1,4 +1,4 @@
-# 🧬 Cancer vs. Treatment — a Game-Theory Simulator
+# Cancer vs. Treatment — a Game-Theory Simulator
 
 A small, self-contained browser game in which **you are the oncologist** and the cancer is
 an adapting opponent. It is built on the model baseline in:
@@ -42,9 +42,9 @@ treatment holidays** keeps the cancer off-balance.
   treatment holidays. Run it to zero and the patient dies — even if the tumour was shrinking.
 - **Max turns** is configurable; set it to **0** to play with no turn limit (the game then
   runs until cure or patient death).
-- **💡 Suggest (AI)** fills the sliders with the planner's recommended move; **⏩ Let the AI
-  play** hands the game to the planner, which advances **one turn every 2 seconds** so you can
-  watch its strategy unfold (press again to stop and take back control).
+- **Suggest** fills the sliders with the planner's recommended move; **Model autoplay** hands
+  the game to the planner, which advances **one turn every 2 seconds** so you can watch
+  its strategy unfold (press again to stop and take back control).
 
 You are scored against three reference strategies played on the same random seed:
 
@@ -133,18 +133,12 @@ combination wins.
 
 ---
 
-## 🥚 Easter egg
+## Please don't click here, just read ahead
 
 <details>
 <summary>(spoiler)</summary>
 
-Before you play your first turn — with the AI not running — click the **"Quality of life"**
-label. You'll be asked *"Is survival at all cost worth it?"* Choose **No**, and a third AI
-takes over: a **palliative planner** that ignores "beat the tumour" and instead **prolongs the
-patient's life as long as possible while holding quality of life above 33**. In tough,
-aggressive tumours it often keeps the patient *alive longer than the cure-seeking AI* — and
-comfortable the whole way — a direct, playable illustration of the paper's core tension between
-tumour burden and quality of life.
+Before your first turn, click on the **Quality of Life** label, if you answer correctly, you might be ethically surprised.
 
 </details>
 
