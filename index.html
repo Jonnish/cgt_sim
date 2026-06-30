@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cancer vs. Treatment — a Game-Theory Simulator</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c232d; --line:#2b333d;
+    --txt:#e6edf3; --muted:#9aa7b4; --accent:#4fc3f7;
+    --reg:#7ee787; --niche:#f0b15a; --stem:#ff6b6b;
+    --you:#4fc3f7; --auto:#a371f7; --tA:#ff6b6b; --tB:#f0b15a;
+    --good:#3fb950; --bad:#f85149; --warn:#d29922;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  h1{font-size:20px;margin:0 0 2px}
+  h2{font-size:15px;margin:0 0 10px;color:var(--accent);
+    border-bottom:1px solid var(--line);padding-bottom:6px}
+  h3{font-size:13px;margin:14px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  a{color:var(--accent)}
+  .wrap{max-width:1180px;margin:0 auto;padding:18px}
+  .sub{color:var(--muted);margin:0 0 14px;font-size:13px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+  .grid{display:grid;gap:16px}
+  .cols-2{grid-template-columns:1fr 1fr}
+  .cols-3{grid-template-columns:1fr 1fr 1fr}
+  @media(max-width:880px){.cols-2,.cols-3{grid-template-columns:1fr}}
+  label.field{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted);margin-bottom:8px}
+  label.field b{color:var(--txt);font-size:12px;font-weight:600}
+  .rowflex{display:flex;align-items:center;gap:8px}
+  input[type=number]{width:100%;background:var(--panel2);border:1px solid var(--line);
+    color:var(--txt);border-radius:6px;padding:6px 8px;font:inherit}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .val{min-width:42px;text-align:right;font-variant-numeric:tabular-nums;color:var(--txt)}
+  button{background:var(--accent);color:#06121b;border:0;border-radius:8px;
+    padding:9px 14px;font:600 13px/1 inherit;cursor:pointer}
+  button.sec{background:var(--panel2);color:var(--txt);border:1px solid var(--line)}
+  button.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  button.spd{padding:5px 9px;font-size:12px}
+  button.spd.active{background:var(--accent);color:#06121b;border-color:var(--accent)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .btnrow{display:flex;flex-wrap:wrap;gap:8px}
+  .hidden{display:none !important}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
+  .meter{height:10px;background:var(--panel2);border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+  .meter>span{display:block;height:100%}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted);margin-top:8px}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  .statbig{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+  details{margin-top:6px}
+  summary{cursor:pointer;color:var(--accent);font-size:13px;margin-bottom:8px}
+  canvas{display:block;width:100%;background:var(--panel2);border-radius:8px;border:1px solid var(--line)}
+  #tumor-canvas{image-rendering:pixelated;image-rendering:crisp-edges;background:#0a0d12}
+  .kv{display:flex;justify-content:space-between;padding:2px 0;font-size:12.5px}
+  .kv span:first-child{color:var(--muted)}
+  .note{font-size:12px;color:var(--muted);background:var(--panel2);border-left:3px solid var(--accent);
+    padding:8px 10px;border-radius:0 6px 6px 0;margin-top:10px}
+  .banner{padding:12px 16px;border-radius:8px;font-weight:600;margin-bottom:12px}
+  .banner.win{background:rgba(63,185,80,.15);border:1px solid var(--good);color:#7ee787}
+  .banner.lose{background:rgba(248,81,73,.15);border:1px solid var(--bad);color:#ff9c97}
+  .banner.go{background:rgba(79,195,247,.12);border:1px solid var(--accent);color:#9fdcff}
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.62);display:flex;
+    align-items:center;justify-content:center;z-index:100;padding:20px}
+  .modal-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:24px;max-width:460px;box-shadow:0 18px 50px rgba(0,0,0,.55)}
+  .dosebox{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px}
+  .tag{font-size:11px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============================ SETUP ============================ -->
+  <section id="setup">
+    <h1>Cancer vs. Treatment — a Game-Theory Simulator</h1>
+    <p class="sub">A turn-based game built on Staňková, Brown, Dalton &amp; Gatenby,
+      <i>“Optimizing Cancer Treatment Using Game Theory,”</i> JAMA Oncol. 2019.
+      You are the oncologist (the <b>leader</b>); the cancer is the <b>follower</b> that
+      can only adapt to drugs you have already played.</p>
+
+    <div class="grid cols-2">
+      <!-- DRUGS -->
+      <div class="panel">
+        <h2>Your two drugs</h2>
+        <p class="sub">Effectiveness = max fraction of a cell type killed at full dose
+          (before resistance). Combo multipliers apply to <b>that drug’s</b> effectiveness
+          and toxicity when <b>both</b> drugs are given the same turn.</p>
+
+        <div id="drugA-fields"></div>
+        <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+        <div id="drugB-fields"></div>
+
+        <div class="note">Max tolerable toxicity per turn =
+          <b id="maxtox-preview">4.0</b> (= the higher of the two base toxicities).</div>
+      </div>
+
+      <!-- CANCER -->
+      <div class="panel">
+        <h2>The tumour</h2>
+        <p class="sub">Set global dials. Per-type counts, proliferation and resistance are
+          <b>derived</b> from them (shown live on the right).</p>
+
+        <div id="cancer-fields"></div>
+
+        <details>
+          <summary>Advanced parameters</summary>
+          <div id="adv-fields"></div>
+        </details>
+
+        <h3>Derived cancer profile</h3>
+        <table id="derived-table">
+          <thead><tr><th>Cell type</th><th class="num">Start</th>
+            <th class="num">Prolif.</th><th class="num">Resist.</th><th class="num">Evolves</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="note">
+          <b>Regular</b>: bulk of the tumour, fast-dividing, very sensitive, slow to evolve.<br>
+          <b>Niche</b>: surrounds &amp; <b>shields</b> the core, grows only while the core lives,
+          high fixed baseline resistance; once stripped, the exposed core is sensitised.<br>
+          <b>Stem core</b>: central, slow-dividing, most resistant, evolves fastest, and
+          <b>re-seeds</b> regular cells every turn.
+        </div>
+      </div>
+    </div>
+
+    <div class="btnrow">
+      <button id="start-btn">Start game</button>
+      <button class="sec" id="defaults-btn">Reset to defaults</button>
+    </div>
+  </section>
+
+  <!-- ============================ GAME ============================ -->
+  <section id="game" class="hidden">
+    <div class="rowflex" style="justify-content:space-between;align-items:flex-end">
+      <div><h1>Treatment in progress</h1>
+        <p class="sub" style="margin:0">Turn <b id="turn-num">0</b> / <span id="turn-max">60</span>
+          &nbsp;·&nbsp; seed <span id="seed-lbl">—</span></p></div>
+      <button class="ghost" id="back-btn">New setup</button>
+    </div>
+
+    <div id="banner" class="banner go hidden"></div>
+
+    <div class="grid cols-3" style="margin-top:14px">
+      <!-- LEFT: tumour viz + vitals + history -->
+      <div class="panel">
+        <h2>Tumour</h2>
+        <canvas id="tumor-canvas" width="320" height="240"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--reg)"></i>Regular</span>
+          <span><i style="background:var(--niche)"></i>Niche</span>
+          <span><i style="background:var(--stem)"></i>Stem core</span>
+        </div>
+        <h3>Burden</h3>
+        <div class="kv"><span>Total cells</span><b id="v-total">0</b></div>
+        <div class="kv"><span>Regular / Niche / Stem</span>
+          <b><span id="v-reg">0</span> / <span id="v-niche">0</span> / <span id="v-stem">0</span></b></div>
+        <h3>Patient health</h3>
+        <div class="meter"><span id="health-bar" style="background:var(--good);width:100%"></span></div>
+        <div class="kv" id="qol-row" style="margin-top:4px"><span>Quality of life</span><b id="v-health">100</b></div>
+
+        <h3>Recent turns <span class="tag">(last 5)</span></h3>
+        <table id="history-table">
+          <thead><tr><th>#</th><th>Treatment</th>
+            <th class="num">QoL</th><th class="num">Tumour</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <!-- MIDDLE: resistance + controls -->
+      <div class="panel">
+        <h2>Resistance (per cell type)</h2>
+        <div id="resist-bars"></div>
+        <div class="note">Resistance to a drug <b>rises</b> only while that drug is being
+          given, and <b>decays</b> on turns you withhold it. That is the lever behind
+          drug-cycling and treatment holidays.</div>
+
+        <h2 style="margin-top:18px">Your move this turn</h2>
+        <div class="dosebox">
+          <label class="field"><b><span id="lblA">Drug A</span> dose</b>
+            <div class="rowflex"><input type="range" id="doseA" min="0" max="100" value="0">
+              <span class="val" id="doseAval">0%</span></div></label>
+          <label class="field"><b><span id="lblB">Drug B</span> dose</b>
+            <div class="rowflex"><input type="range" id="doseB" min="0" max="100" value="0">
+              <span class="val" id="doseBval">0%</span></div></label>
+          <div class="kv"><span>Toxicity this turn</span>
+            <b><span id="tox-used">0.0</span> / <span id="tox-max">4.0</span></b></div>
+          <div class="meter"><span id="tox-bar" style="background:var(--accent);width:0%"></span></div>
+          <div class="tag" id="tox-hint">&nbsp;</div>
+        </div>
+        <div class="btnrow">
+          <button id="administer-btn">Administer &amp; advance</button>
+          <button class="sec" id="holiday-btn">Treatment holiday</button>
+        </div>
+        <div class="btnrow" style="margin-top:8px">
+          <button class="ghost" id="suggest-btn">Suggest</button>
+          <button class="ghost" id="autofinish-btn">Model autoplay</button>
+        </div>
+        <div class="rowflex" style="margin-top:8px;gap:6px;align-items:center">
+          <span class="tag">Model speed</span>
+          <div class="btnrow" id="speed-row" style="gap:4px">
+            <button class="sec spd active" data-s="1">1×</button>
+            <button class="sec spd" data-s="2">2×</button>
+            <button class="sec spd" data-s="5">5×</button>
+            <button class="sec spd" data-s="10">10×</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: comparison chart -->
+      <div class="panel">
+        <h2>Tumour burden over time</h2>
+        <canvas id="chart-canvas" width="340" height="240"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--you)"></i>You</span>
+          <span><i style="background:var(--auto)"></i>Adaptive Model</span>
+          <span><i style="background:var(--tA)"></i>Typical: Drug A only</span>
+          <span><i style="background:var(--tB)"></i>Typical: Drug B only</span>
+        </div>
+        <h3>Scoreboard <span class="tag">(mean burden % of start — lower is better)</span></h3>
+        <table id="score-table">
+          <thead><tr><th>Strategy</th><th>Outcome</th><th class="num">Turns</th><th class="num">Score</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="note">“Typical treatment” = the same single drug at maximum tolerable
+          dose every turn. The adaptive Model plans a few turns ahead and is penalised for
+          letting the cancer evolve resistance — the paper’s Stackelberg idea.</div>
+      </div>
+    </div>
+  </section>
+
+  <p class="sub" style="text-align:center;margin-top:8px">
+    Educational toy model — not medically accurate. See <a href="README.md">README.md</a> for the model mapping.</p>
+
+  <!-- hidden easter egg: prompted by clicking "Quality of life" before turn 1 -->
+  <div id="eg-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <h2 style="border:0;margin-bottom:8px">Is survival at all cost worth it?</h2>
+      <p class="sub" style="margin-bottom:14px">Every turn of treatment can buy a little more
+        time — but often at a real cost to the patient's quality of life. How should care proceed?</p>
+      <div class="btnrow" style="justify-content:flex-end">
+        <button class="sec" id="eg-yes">Yes — fight on</button>
+        <button id="eg-no">No — comfort first</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="sim.js"></script>
+<script>
+/* ============================================================ UI layer */
+const Sim = window.CancerSim;
+const $ = (id)=>document.getElementById(id);
+const fmt = (x)=> Math.abs(x)>=1000 ? (x/1000).toFixed(1)+"k" : Math.round(x).toString();
+
+/* ---- current player-facing input (deep clone of defaults) ---- */
+let input = structuredClone(Sim.DEFAULT_INPUT);
+
+/* ---------- build the setup form dynamically ---------- */
+function numField(obj, key, label, min, max, step){
+  const id = "f_"+Math.random().toString(36).slice(2);
+  const wrap = document.createElement("label"); wrap.className="field";
+  wrap.innerHTML = `<b>${label}</b>`;
+  const inp = document.createElement("input");
+  inp.type="number"; inp.min=min; inp.max=max; inp.step=step; inp.value=obj[key]; inp.id=id;
+  inp.addEventListener("input", ()=>{ let v=parseFloat(inp.value); if(isNaN(v))return;
+    v=Math.max(min,Math.min(max,v)); obj[key]=v; refreshDerived(); });
+  wrap.appendChild(inp); return wrap;
+}
+function drugFields(container, d, letter){
+  const c = $(container); c.innerHTML="";
+  const title=document.createElement("label"); title.className="field";
+  title.innerHTML=`<b style="color:var(--accent)">Drug ${letter}</b>`;
+  const nm=document.createElement("input"); nm.type="text"; nm.value=d.name;
+  nm.addEventListener("input",()=>{d.name=nm.value}); title.appendChild(nm); c.appendChild(title);
+  const g=document.createElement("div"); g.className="grid cols-3";
+  g.appendChild(numField(d,"effRegular","Eff. vs Regular",0,1,0.05));
+  g.appendChild(numField(d,"effNiche","Eff. vs Niche",0,1,0.05));
+  g.appendChild(numField(d,"effStem","Eff. vs Stem",0,1,0.05));
+  c.appendChild(g);
+  const g2=document.createElement("div"); g2.className="grid cols-3";
+  g2.appendChild(numField(d,"tox","Base toxicity",0,10,0.5));
+  g2.appendChild(numField(d,"comboEff","Combo × eff.",0.5,2,0.05));
+  g2.appendChild(numField(d,"comboTox","Combo × tox.",0.5,2,0.05));
+  c.appendChild(g2);
+}
+function cancerFields(){
+  const c=$("cancer-fields"); c.innerHTML="";
+  const g=document.createElement("div"); g.className="grid cols-3";
+  g.appendChild(numField(input,"tumorSize","Tumour size (cells)",100,5000,50));
+  g.appendChild(numField(input,"growth","Growth (0–1)",0,1,0.05));
+  g.appendChild(numField(input,"resistance","Resistance (0–1)",0,1,0.05));
+  c.appendChild(g);
+}
+function advFields(){
+  const c=$("adv-fields"); c.innerHTML="";
+  const g=document.createElement("div"); g.className="grid cols-3";
+  g.appendChild(numField(input,"nicheShield","Niche shielding",0,5,0.25));
+  g.appendChild(numField(input,"stemExposeBonus","Core expose bonus",0,3,0.1));
+  g.appendChild(numField(input,"stemSpawn","Stem→regular spawn",0,1,0.02));
+  g.appendChild(numField(input,"resDecay","Resistance decay",0,0.5,0.01));
+  g.appendChild(numField(input,"toxHealthCost","Tox→health cost",0,5,0.1));
+  g.appendChild(numField(input,"healthRecovery","Holiday recovery",0,20,0.5));
+  g.appendChild(numField(input,"maxTurns","Max turns (0 = unlimited)",0,300,5));
+  c.appendChild(g);
+}
+function refreshDerived(){
+  const p = Sim.deriveParams(input);
+  $("maxtox-preview").textContent = p.maxTox.toFixed(1);
+  const rows=[
+    ["Regular", p.types.regular.count0, p.types.regular.prolif, p.types.regular.res0, p.types.regular.evolv],
+    ["Niche",   p.types.niche.count0,   p.types.niche.prolifBase, p.types.niche.res0, p.types.niche.evolv],
+    ["Stem core", p.types.stem.count0,  p.types.stem.prolif,    p.types.stem.res0,  p.types.stem.evolv],
+  ];
+  const tb=$("derived-table").querySelector("tbody"); tb.innerHTML="";
+  for(const [n,c0,pr,r0,ev] of rows){
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${n}</td><td class="num">${Math.round(c0)}</td>
+      <td class="num">${pr.toFixed(2)}</td><td class="num">${r0.toFixed(2)}</td>
+      <td class="num">${ev.toFixed(3)}</td>`;
+    tb.appendChild(tr);
+  }
+}
+function buildSetup(){
+  drugFields("drugA-fields", input.drugA, "A");
+  drugFields("drugB-fields", input.drugB, "B");
+  cancerFields(); advFields(); refreshDerived();
+}
+buildSetup();
+
+$("defaults-btn").onclick=()=>{ input=structuredClone(Sim.DEFAULT_INPUT); buildSetup(); };
+
+/* ============================================================ GAME state */
+let params, state, rng, seed, gameOver;
+let series = { you:[], auto:[], typicalA:[], typicalB:[] };
+let scoreRows = {};
+let history = [];      // per-turn log: treatment + effect on patient & tumour
+
+$("start-btn").onclick=startGame;
+$("back-btn").onclick=()=>{ stopModelPlay(); $("game").classList.add("hidden"); $("setup").classList.remove("hidden"); };
+
+function startGame(){
+  if(modelTimer){clearTimeout(modelTimer); modelTimer=null;} modelPlaying=false; palliativeMode=false;
+  $("autofinish-btn").textContent="Model autoplay";
+  $("eg-modal").classList.add("hidden");
+  params = Sim.deriveParams(input);
+  seed = (Math.random()*1e9)|0;
+  rng = Sim.makeRng(seed);
+  state = Sim.initialState(params);
+  gameOver=false; history=[];
+
+  // precompute the three reference strategies on the SAME seed (fair draws)
+  const A = Sim.runStrategy(Sim.POLICIES.typicalA, params, seed);
+  const B = Sim.runStrategy(Sim.POLICIES.typicalB, params, seed);
+  const M = Sim.runStrategy(Sim.POLICIES.auto,     params, seed);
+  series.typicalA = A.burden; series.typicalB = B.burden; series.auto = M.burden;
+  series.you = [Sim.totalCells(state)];
+  scoreRows = {
+    typicalA:{name:`Typical — ${params.drugs.A.name}`, r:A, color:"--tA"},
+    typicalB:{name:`Typical — ${params.drugs.B.name}`, r:B, color:"--tB"},
+    auto:    {name:"Adaptive Model", r:M, color:"--auto"},
+    you:     {name:"You", r:null, color:"--you"},
+  };
+
+  $("setup").classList.add("hidden"); $("game").classList.remove("hidden");
+  $("turn-max").textContent=params.unlimited?"∞":params.maxTurns; $("seed-lbl").textContent=seed;
+  $("lblA").textContent=params.drugs.A.name; $("lblB").textContent=params.drugs.B.name;
+  $("tox-max").textContent=params.maxTox.toFixed(1);
+  $("banner").classList.add("hidden");
+  $("doseA").value=0; $("doseB").value=0;
+  buildResistBars();
+  initTumorViz(seed);
+  setControlsEnabled(true);
+  onDoseChange(); render();
+}
+
+/* ---------- dose controls & toxicity budget ---------- */
+function currentAction(){
+  return { doseA: (+$("doseA").value)/100, doseB: (+$("doseB").value)/100 };
+}
+function onDoseChange(){
+  const a=currentAction();
+  $("doseAval").textContent=Math.round(a.doseA*100)+"%";
+  $("doseBval").textContent=Math.round(a.doseB*100)+"%";
+  const tox=Sim.toxicityOf(a, params);
+  $("tox-used").textContent=tox.toFixed(1);
+  const pct=Math.min(100, tox/params.maxTox*100);
+  const bar=$("tox-bar"); bar.style.width=pct+"%";
+  const over = tox > params.maxTox + 1e-9;
+  bar.style.background = over ? "var(--bad)" : (pct>80? "var(--warn)":"var(--accent)");
+  const both = a.doseA>0 && a.doseB>0;
+  $("tox-hint").textContent = over
+    ? "Over the tolerable toxicity — reduce a dose."
+    : (both ? "Both drugs active → combo multipliers applied." : " ");
+  $("administer-btn").disabled = over || gameOver;
+}
+$("doseA").addEventListener("input", onDoseChange);
+$("doseB").addEventListener("input", onDoseChange);
+$("holiday-btn").onclick=()=>{ $("doseA").value=0; $("doseB").value=0; onDoseChange(); advance(); };
+$("administer-btn").onclick=()=>advance();
+$("suggest-btn").onclick=()=>{
+  const a=Sim.planAction(state, params, 6);
+  $("doseA").value=Math.round(a.doseA*100); $("doseB").value=Math.round(a.doseB*100);
+  onDoseChange();
+};
+
+/* ---------- animated Model playback: 1 turn every 2s, with 2×/5×/10× ---------- */
+const MODEL_BASE_MS=2000;          // 1× = one turn every 2 seconds
+let modelTimer=null, modelPlaying=false, modelSpeed=1, palliativeMode=false;
+const modelDelay=()=>Math.max(60, Math.round(MODEL_BASE_MS/modelSpeed));
+document.querySelectorAll(".spd").forEach(b=>{
+  b.onclick=()=>{ modelSpeed=+b.dataset.s;
+    document.querySelectorAll(".spd").forEach(o=>o.classList.toggle("active", o===b)); };
+});
+$("autofinish-btn").onclick=()=>{
+  if(modelPlaying){ stopModelPlay(); } else { palliativeMode=false; startModelPlay(); }
+};
+function startModelPlay(){
+  if(gameOver) return;
+  modelPlaying=true;
+  $("autofinish-btn").textContent="Stop model";
+  setManualEnabled(false);
+  modelTick();
+}
+function stopModelPlay(){
+  modelPlaying=false;
+  if(modelTimer){clearTimeout(modelTimer); modelTimer=null;}
+  $("autofinish-btn").textContent="Model autoplay";
+  if(!gameOver) setManualEnabled(true);
+}
+function modelTick(){
+  if(!modelPlaying || gameOver || state.turn>=params.horizon){ stopModelPlay(); return; }
+  const a=Sim.planAction(state, params, 6, palliativeMode ? "palliative" : "cure");
+  // surface the Model's chosen doses on the sliders so the player sees the plan
+  $("doseA").value=Math.round(a.doseA*100);
+  $("doseB").value=Math.round(a.doseB*100);
+  onDoseChange();
+  step(a); render(); checkEnd();
+  if(gameOver){ stopModelPlay(); return; }
+  modelTimer=setTimeout(modelTick, modelDelay());   // re-read speed each tick (live changes)
+}
+
+function advance(){ step(currentAction()); render(); checkEnd();
+  $("doseA").value=0; $("doseB").value=0; onDoseChange(); }
+
+function step(action){
+  if(gameOver) return;
+  const beforeHealth=state.health, beforeBurden=Sim.totalCells(state);
+  state = Sim.simulateTurn(state, action, params, rng, false);
+  series.you.push(Sim.totalCells(state));
+  history.push({
+    turn: state.turn,
+    doseA: action.doseA, doseB: action.doseB, tox: state.toxThisTurn,
+    dHealth: state.health - beforeHealth,
+    dBurden: Sim.totalCells(state) - beforeBurden
+  });
+}
+
+function checkEnd(){
+  if(state.outcome || state.turn>=params.horizon){
+    gameOver=true; setControlsEnabled(false);
+    const outcome = state.outcome || "survived";
+    scoreRows.you.r = { outcome, turns: state.turn,
+      score: Sim.scoreSeries(series.you, outcome, params), finalHealth: state.health };
+    showBanner(outcome);
+    renderScores();
+  }
+}
+
+const OUTCOME_TXT = {
+  cure:["win","Cure — the tumour was driven extinct."],
+  progression:["lose","Tumour progression — the cancer escaped treatment."],
+  toxicDeath:["lose","Toxic death — the treatment killed the patient before the tumour."],
+  survived:["go","Horizon reached — patient alive; tumour controlled but not cured."]
+};
+function showBanner(outcome){
+  const [cls,txt]=OUTCOME_TXT[outcome]||OUTCOME_TXT.survived;
+  const b=$("banner"); b.className="banner "+cls; b.textContent=txt; b.classList.remove("hidden");
+}
+function showInfoBanner(text){
+  const b=$("banner"); b.className="banner go"; b.textContent=text; b.classList.remove("hidden");
+}
+
+/* ---- easter egg: click "Quality of life" before the first turn (Model idle) ---- */
+$("qol-row").onclick=()=>{
+  if(state && state.turn===0 && !gameOver && !modelPlaying)
+    $("eg-modal").classList.remove("hidden");
+};
+$("eg-yes").onclick=()=>{ $("eg-modal").classList.add("hidden"); };  // fight on — back to the game
+$("eg-no").onclick=()=>{                                             // comfort first — palliative model
+  $("eg-modal").classList.add("hidden");
+  palliativeMode=true;
+  showInfoBanner("Palliative care — the Model now plays to keep the patient alive as long as "+
+    "possible while holding quality of life above 33, rather than chasing the tumour.");
+  startModelPlay();
+};
+
+function setControlsEnabled(on){
+  for(const id of ["doseA","doseB","administer-btn","holiday-btn","suggest-btn","autofinish-btn"])
+    $(id).disabled = !on;
+  if(on) onDoseChange();
+}
+// enable/disable only the MANUAL controls, leaving the Model play/stop button active
+function setManualEnabled(on){
+  for(const id of ["doseA","doseB","administer-btn","holiday-btn","suggest-btn"])
+    $(id).disabled = !on;
+  if(on) onDoseChange();
+}
+
+/* ============================================================ rendering */
+function buildResistBars(){
+  const c=$("resist-bars"); c.innerHTML="";
+  const colors={regular:"--reg",niche:"--niche",stem:"--stem"};
+  for(const ty of Sim.TYPES){
+    for(const d of Sim.DRUGS){
+      const row=document.createElement("div");
+      row.style.margin="0 0 6px";
+      row.innerHTML=`<div class="kv"><span>${ty} · vs ${params.drugs[d].name}</span>
+        <b id="rv-${ty}-${d}">0%</b></div>
+        <div class="meter"><span id="rb-${ty}-${d}"
+          style="background:var(${colors[ty]});width:0%"></span></div>`;
+      c.appendChild(row);
+    }
+  }
+}
+function render(){
+  $("turn-num").textContent=state.turn;
+  $("v-total").textContent=fmt(Sim.totalCells(state));
+  $("v-reg").textContent=fmt(state.cells.regular);
+  $("v-niche").textContent=fmt(state.cells.niche);
+  $("v-stem").textContent=fmt(state.cells.stem);
+  $("v-health").textContent=Math.round(state.health);
+  const hb=$("health-bar"); hb.style.width=state.health+"%";
+  hb.style.background = state.health>50?"var(--good)":state.health>20?"var(--warn)":"var(--bad)";
+  for(const ty of Sim.TYPES) for(const d of Sim.DRUGS){
+    const v=state.resist[ty][d];
+    $(`rv-${ty}-${d}`).textContent=Math.round(v*100)+"%";
+    $(`rb-${ty}-${d}`).style.width=(v*100)+"%";
+  }
+  updateTumorViz(); drawChart(); renderScores(); renderHistory();
+}
+
+function cssvar(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+function actionLabel(a,b){
+  const A=Math.round(a*100), B=Math.round(b*100);
+  if(A===0&&B===0) return "Holiday";
+  if(A>0&&B>0) return `A ${A}% + B ${B}%`;
+  return A>0 ? `A ${A}%` : `B ${B}%`;
+}
+function renderHistory(){
+  const tb=$("history-table").querySelector("tbody"); tb.innerHTML="";
+  const last=history.slice(-5).reverse();
+  if(!last.length){ tb.innerHTML='<tr><td colspan="4" class="tag">No turns played yet.</td></tr>'; return; }
+  for(const h of last){
+    const dh=Math.round(h.dHealth), db=h.dBurden;
+    const dhCol = cssvar(dh>0?"--good":dh<0?"--bad":"--muted");
+    const dbGood = db<-0.5, dbBad = db>0.5;
+    const dbCol = cssvar(dbGood?"--good":dbBad?"--bad":"--muted");
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${h.turn}</td>
+      <td>${actionLabel(h.doseA,h.doseB)}</td>
+      <td class="num" style="color:${dhCol}">${dh>0?"+":""}${dh}</td>
+      <td class="num" style="color:${dbCol}">${db>0.5?"+":db<-0.5?"-":""}${fmt(Math.abs(db))}</td>`;
+    tb.appendChild(tr);
+  }
+}
+
+/* =================== 16-bit pixel-blob tumour renderer ===================
+ * The tumour is drawn as a chunky, non-uniform blob of pixels coloured by
+ * composition (stem core red, niche orange, regular green). Each turn we diff
+ * the new pixel grid against the previous one and against the per-type cell
+ * deltas, then spawn transient effects: a bright GLITTER where cells divided
+ * and a fading GREY-OUT where cells died. A short rAF loop animates them.    */
+const TUMOR = {
+  P:5, GW:64, GH:48,            // 64*5 x 48*5 = 320 x 240
+  grid:null, buffer:null, noise:null, shape:null,
+  oldCells:null, effects:[], raf:null
+};
+const TCOL = {1:[126,231,135], 2:[240,177,90], 3:[255,107,107]}; // reg/niche/stem
+const rgb = (c,a)=>`rgba(${c[0]},${c[1]},${c[2]},${a})`;
+
+function initTumorViz(seed){
+  const T=TUMOR;
+  if(T.raf){cancelAnimationFrame(T.raf); T.raf=null;}
+  T.grid = new Int8Array(T.GW*T.GH);
+  T.noise = new Float32Array(T.GW*T.GH);
+  for(let i=0;i<T.noise.length;i++){          // stable per-pixel jitter/texture
+    let h=(i*2654435761 ^ seed)>>>0; h=(h^(h>>>13))>>>0;
+    T.noise[i]=(h%1000)/1000;
+  }
+  const r=Sim.makeRng(seed^0x9e3779b9);        // irregular blob outline
+  T.shape=[]; for(let k=2;k<=4;k++) T.shape.push({k, amp:0.06+0.06*r(), ph:r()*Math.PI*2});
+  T.buffer = T.buffer || (()=>{const c=document.createElement("canvas");c.width=320;c.height=240;return c;})();
+  T.oldCells=null; T.effects.length=0;
+}
+function blobRadiusFactor(ang){ let s=1; for(const h of TUMOR.shape) s+=h.amp*Math.sin(h.k*ang+h.ph); return s; }
+
+function computeGrid(cells){
+  const T=TUMOR, g=new Int8Array(T.GW*T.GH);
+  const total=cells.regular+cells.niche+cells.stem;
+  if(total<=0.5) return g;
+  const cx=T.GW/2, cy=T.GH/2, maxR=Math.min(T.GW,T.GH)/2-1;
+  const blobScale=Math.min(1,Math.sqrt(total/params.progressionLimit));
+  const fS=cells.stem/total, fN=cells.niche/total;
+  const rStem=Math.sqrt(fS), rNiche=Math.sqrt(fS+fN);   // area-proportional bands
+  for(let gy=0;gy<T.GH;gy++) for(let gx=0;gx<T.GW;gx++){
+    const dx=gx+0.5-cx, dy=gy+0.5-cy, dist=Math.hypot(dx,dy), ang=Math.atan2(dy,dx);
+    const edge=maxR*blobScale*blobRadiusFactor(ang);
+    if(dist>edge) continue;
+    const idx=gy*T.GW+gx;
+    let nr=dist/edge + (T.noise[idx]-0.5)*0.13;          // ragged, speckled bands
+    nr=nr<0?0:nr>1?1:nr;
+    g[idx] = nr<=rStem?3 : nr<=rNiche?2 : 1;
+  }
+  return g;
+}
+
+function spawnEffect(kind,idx,colorIdx){
+  if(TUMOR.effects.length>320) return;
+  TUMOR.effects.push({kind, gx:idx%TUMOR.GW, gy:(idx/TUMOR.GW)|0,
+    c:TCOL[colorIdx]||[200,200,200], t0:performance.now()});
+}
+function updateTumorViz(){
+  const T=TUMOR, cells=state.cells;
+  const ng=computeGrid(cells), og=T.grid;
+  const oc=T.oldCells, nc={regular:cells.regular,niche:cells.niche,stem:cells.stem};
+  const delta = oc ? {regular:nc.regular-oc.regular,niche:nc.niche-oc.niche,stem:nc.stem-oc.stem}
+                   : {regular:1,niche:1,stem:1};
+  T.effects.length=0;
+  // boundary + recomposition diff
+  for(let i=0;i<ng.length;i++){
+    const o=og?og[i]:0, n=ng[i];
+    if(o===0 && n!==0){ if(oc) spawnEffect("glitter",i,n); }     // new pixel -> division
+    else if(o!==0 && n===0){ spawnEffect("death",i,o); }          // lost pixel -> death
+    else if(o!==n && o!==0){                                      // type swapped in place
+      const dKey=({1:"regular",2:"niche",3:"stem"})[o];
+      if(delta[dKey]<0 && T.noise[i]>0.5) spawnEffect("death",i,o);
+      else if(delta[({1:"regular",2:"niche",3:"stem"})[n]]>0 && T.noise[i]<0.25) spawnEffect("glitter",i,n);
+    }
+  }
+  T.grid=ng; T.oldCells=nc;
+  renderTumorBuffer();
+  if(T.raf) cancelAnimationFrame(T.raf);
+  animTumor();
+}
+function renderTumorBuffer(){
+  const T=TUMOR, x=T.buffer.getContext("2d"); x.imageSmoothingEnabled=false;
+  x.clearRect(0,0,320,240);
+  for(let i=0;i<T.grid.length;i++){
+    const v=T.grid[i]; if(!v) continue;
+    const c=TCOL[v], sh=0.82+0.30*T.noise[i];               // 16-bit shading texture
+    x.fillStyle=`rgb(${Math.min(255,c[0]*sh)|0},${Math.min(255,c[1]*sh)|0},${Math.min(255,c[2]*sh)|0})`;
+    x.fillRect((i%T.GW)*T.P,((i/T.GW)|0)*T.P,T.P,T.P);
+  }
+}
+function animTumor(){
+  const T=TUMOR, cv=$("tumor-canvas"), x=cv.getContext("2d"); x.imageSmoothingEnabled=false;
+  const now=performance.now();
+  x.clearRect(0,0,320,240);
+  x.drawImage(T.buffer,0,0);
+  const keep=[];
+  for(const e of T.effects){
+    const el=now-e.t0, dur=e.kind==="glitter"?620:1000, p=el/dur;
+    if(p>=1) continue; keep.push(e);
+    const X=e.gx*T.P, Y=e.gy*T.P, P=T.P;
+    if(e.kind==="death"){
+      // fade the dead cell's colour toward grey, then out
+      const grey=120, mix=p, a=(1-p)*0.85;
+      const r=e.c[0]+(grey-e.c[0])*mix, g=e.c[1]+(grey-e.c[1])*mix, b=e.c[2]+(grey-e.c[2])*mix;
+      x.fillStyle=rgb([r|0,g|0,b|0],a); x.fillRect(X,Y,P,P);
+    } else {
+      // brighten the pixel + twinkling sparkle
+      const tw=0.55+0.45*Math.sin(el*0.05), a=(1-p)*tw;
+      x.fillStyle=rgb([255,255,255], a*0.9); x.fillRect(X+1,Y+1,P-2,P-2);
+      x.fillStyle=rgb([255,255,255], a); const c=P/2;
+      x.fillRect(X+c-0.5,Y-1,1.5,P+2); x.fillRect(X-1,Y+c-0.5,P+2,1.5);
+    }
+  }
+  T.effects=keep;
+  // dashed progression boundary
+  x.strokeStyle="rgba(248,81,73,.35)"; x.setLineDash([4,4]);
+  x.beginPath(); x.arc(160,120,Math.min(320,240)/2-2,0,Math.PI*2); x.stroke(); x.setLineDash([]);
+  T.raf = T.effects.length ? requestAnimationFrame(animTumor) : null;
+}
+
+function drawChart(){
+  const cv=$("chart-canvas"), x=cv.getContext("2d");
+  const W=cv.width,H=cv.height, pad=28; x.clearRect(0,0,W,H);
+  const X0=pad, X1=W-6, Y0=H-20, Y1=8;
+  const maxT = params.unlimited
+    ? Math.max(20, series.you.length-1, series.auto.length-1,
+                   series.typicalA.length-1, series.typicalB.length-1)
+    : params.maxTurns;
+  let maxY=params.progressionLimit;
+  // axes
+  x.strokeStyle=cssvar("--line"); x.lineWidth=1;
+  x.beginPath(); x.moveTo(X0,Y1); x.lineTo(X0,Y0); x.lineTo(X1,Y0); x.stroke();
+  x.fillStyle=cssvar("--muted"); x.font="10px system-ui"; x.textAlign="right";
+  for(let g=0;g<=2;g++){ const yy=Y0+(Y1-Y0)*g/2; const val=maxY*g/2;
+    x.fillStyle="rgba(255,255,255,.06)"; x.beginPath(); x.moveTo(X0,yy); x.lineTo(X1,yy); x.stroke();
+    x.fillStyle=cssvar("--muted"); x.fillText(fmt(val), X0-3, yy+3); }
+  x.textAlign="center"; x.fillText("turn", (X0+X1)/2, H-4);
+  const px=(t)=>X0+(X1-X0)*t/maxT;
+  const py=(v)=>Y0+(Y1-Y0)*Math.min(1,v/maxY);
+  function plot(arr,colorVar,width){ if(!arr||!arr.length)return;
+    x.strokeStyle=cssvar(colorVar); x.lineWidth=width; x.beginPath();
+    arr.forEach((v,t)=>{ const X=px(t),Y=py(v); t?x.lineTo(X,Y):x.moveTo(X,Y); }); x.stroke(); }
+  plot(series.typicalA,"--tA",1.4);
+  plot(series.typicalB,"--tB",1.4);
+  plot(series.auto,"--auto",1.6);
+  plot(series.you,"--you",2.4);
+}
+
+function renderScores(){
+  const tb=$("score-table").querySelector("tbody"); tb.innerHTML="";
+  const order=["you","auto","typicalA","typicalB"];
+  for(const k of order){
+    const row=scoreRows[k]; if(!row) continue;
+    const r=row.r;
+    const col = cssvar(row.color);
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td><span class="pill" style="background:${col}22;color:${col}">${row.name}</span></td>
+      <td>${r?prettyOutcome(r.outcome):"playing…"}</td>
+      <td class="num">${r?r.turns:state.turn}</td>
+      <td class="num">${r?r.score.toFixed(1):"—"}</td>`;
+    tb.appendChild(tr);
+  }
+}
+function prettyOutcome(o){
+  return ({cure:"Cure",progression:"Progressed",toxicDeath:"Toxic death",survived:"Controlled"})[o]||o;
+}
+</script>
+</body>
+</html>
